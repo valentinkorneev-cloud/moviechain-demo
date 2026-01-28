@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>MovieChain (Demo)</title>
+  <meta name="description" content="Демо: персонализированные киноцепочки на основе эмоций и критериев. Без внешних ключей."/>
+  <style>
+    /* Стили сохранены почти без изменений (урезаны только ненужные комментарии) */
+body:not(.dark-theme) #favoritesBtn.active .favorites-icon { fill: #ff3b30; stroke: #ff3b30; }
+body.dark-theme #favoritesBtn.active .favorites-icon { fill: none; stroke: #ff3b30; }
+#favoritesBtn .favorites-icon { fill: none; stroke: currentColor; transition: fill 0.2s, stroke 0.2s; }
+
+@font-face { font-family: 'SF Pro Display'; src: local('.SFNSDisplay-Bold'); font-weight:700; }
+@font-face { font-family: 'SF Pro Text'; src: local('.SFNSText-Regular'); font-weight:400; }
+body { font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin:0; background: linear-gradient(135deg,#f8fafc 0%,#eef4ff 100%); color:#1d1d1f; }
+.dark-theme { background: linear-gradient(135deg,#0f0f12 0%,#15151b 100%); color:#f5f5f5; }
+
+/* Header */
+.fixed-header { position: fixed; top:0; left:0; right:0; z-index:100; padding:16px 20px; display:flex; justify-content:space-between; align-items:center; background: rgba(255,255,255,0.65); backdrop-filter: blur(30px); border-bottom:1px solid rgba(210,210,215,0.4); box-shadow:0 4px 20px rgba(0,0,0,0.03); }
+.dark-theme .fixed-header { background: rgba(20,20,22,0.7); border-bottom-color: rgba(60,60,65,0.5); box-shadow:0 4px 20px rgba(0,0,0,0.2); }
+
+.logo { font-size: 24px; font-weight:700; background: linear-gradient(90deg,#0071e3,#ff2d55); -webkit-background-clip:text; background-clip:text; color:transparent; }
+
+.header-button { display:flex; align-items:center; gap:8px; padding:10px 18px; border-radius:14px; background: rgba(255,255,255,0.4); border:1px solid rgba(210,210,215,0.6); color:#1d1d1f; font-family:'SF Pro Text'; font-weight:600; font-size:16px; cursor:pointer; transition: border-color .2s; }
+.dark-theme .header-button { background: rgba(40,40,42,0.6); border-color: rgba(60,60,65,0.7); color:#f5f5f5; }
+
+#favoritesBtn svg { color: inherit; transition: color .2s ease; }
+#favoritesBtn.active svg { color: #ff3b30; }
+
+.theme-toggle-apple { width:76px; height:36px; background:rgba(255,255,255,0.3); backdrop-filter: blur(20px); border-radius:18px; border:1px solid rgba(210,210,215,0.5); display:flex; align-items:center; padding:0 4px; cursor:pointer; overflow:hidden; }
+.dark-theme .theme-toggle-apple { background: rgba(30,30,32,0.4); border-color: rgba(60,60,65,0.6); }
+
+.knob-apple { width:32px; height:32px; background:white; border-radius:16px; box-shadow:0 2px 5px rgba(0,0,0,0.2); transition: transform .3s; }
+.dark-theme .knob-apple { background:#2c2c2e; box-shadow:0 2px 5px rgba(0,0,0,0.4); }
+.icon-center { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:16px; pointer-events:none; }
+
+.main-content { max-width:1000px; margin:120px auto 40px; padding:0 20px; }
+
+.search-card { background:white; border:1px solid #d2d2d7; border-radius:30px; box-shadow:0 8px 30px rgba(0,0,0,0.08); padding:42px; overflow:visible; }
+.dark-theme .search-card { background:#1c1c1e; border-color:#3a3a3c; box-shadow:0 8px 30px rgba(0,0,0,0.3); }
+
+.intro-text { margin:0; text-align:center; font-size:18px; line-height:1.5; color:#1d1d1f; font-family:'SF Pro Display'; }
+.dark-theme .intro-text { color:#f5f5f5; }
+
+.input-group { display:grid; grid-template-columns: minmax(110px,150px) 1fr minmax(110px,150px); gap:16px; margin-bottom:32px; align-items:center; }
+@media (max-width:600px) { .input-group { grid-template-columns:1fr; gap:12px; } .action-button { padding:14px; font-size:15px; } }
+
+.action-button { display:flex; align-items:center; justify-content:center; gap:8px; padding:16px; min-height:48px; border-radius:14px; font-family:'SF Pro Text'; font-weight:600; font-size:15px; cursor:pointer; transition: all .2s; border:1px solid transparent; }
+#settingsBtn { background:white; border:1px solid #d8d8dd; color:#1d1d1f; }
+.dark-theme #settingsBtn { background:#1c1c1e; border-color:#3a3a3c; color:#f5f5f5; }
+#settingsBtn:hover { transform:scale(1.05); border:2px solid #0071e3; }
+
+#searchBtn { background:#0071e3; border:1px solid #0071e3; color:white; }
+#searchBtn:hover:not(:disabled) { box-shadow:0 0 12px rgba(0,113,227,0.4); transform:scale(1.02); }
+#searchBtn:disabled { opacity:0.5; cursor:not-allowed; }
+
+#movieInput { width:100%; padding:14px 18px; font-size:16px; border:2px solid #d2d2d7; border-radius:14px; background:white; color:#1d1d1f; font-family:'SF Pro Text'; outline:none; transition: border-color .2s, box-shadow .2s; }
+#movieInput:focus { border-color:#0071e3; box-shadow:0 0 0 3px rgba(0,113,227,0.25); }
+.dark-theme #movieInput { background:#1c1c1e; border-color:#3a3a3c; color:#f5f5f5; }
+
+.filters-panel { background:white; border-radius:18px; padding:42px; margin-top:24px; box-shadow:0 4px 20px rgba(0,0,0,0.06); border:1px solid #d2d2d7; }
+.dark-theme .filters-panel { background:#1c1c1e; box-shadow:0 4px 20px rgba(0,0,0,0.2); border-color:#3a3a3c; }
+
+.filter-section label { display:block; margin-bottom:12px; font-weight:700; color:#1d1d1f; font-family:'SF Pro Display'; }
+.dark-theme .filter-section label { color:#f5f5f5; }
+
+.pill-button { padding:10px 16px; border-radius:20px; background:white; border:1px solid #d8d8dd; color:#1d1d1f; font-size:14px; cursor:pointer; font-family:'SF Pro Text'; font-weight:600; }
+.dark-theme .pill-button { background:#1c1c1e; border-color:#3a3a3c; color:#f5f5f5; }
+.pill-button:hover, .pill-button.active { background:#0071e3; color:white; border-color:#0071e3; transform:scale(1.03); }
+
+.favorites-modal { position:fixed; bottom:0; left:0; right:0; background:white; border-top:1px solid #d2d2d7; padding:24px; box-shadow:0 -4px 20px rgba(0,0,0,0.1); transform:translateY(100%); transition:transform .3s ease; z-index:90; }
+.dark-theme .favorites-modal { background:#1c1c1e; border-top-color:#3a3a3c; box-shadow:0 -4px 20px rgba(0,0,0,0.3); }
+.favorites-modal.open { transform:translateY(0); }
+
+.movie { background:white; border-radius:16px; padding:20px; margin:16px 0; display:flex; gap:20px; align-items:flex-start; border:1px solid #d2d2d7; }
+.dark-theme .movie { background:#1c1c1e; border-color:#3a3a3c; }
+.poster { width:96px; height:auto; border-radius:12px; flex-shrink:0; box-shadow:0 4px 12px rgba(0,0,0,0.1); }
+.movie-info h3, .movie-info h4 { margin:0 0 8px; font-weight:600; font-size:20px; color:#1d1d1f; }
+.dark-theme .movie-info h3, .dark-theme .movie-info h4 { color:#f5f5f5; }
+.movie p { margin:6px 0; color:#86868b; font-size:16px; line-height:1.4; }
+.dark-theme .movie p { color:#aeaeb2; }
+
+.like-btn { background:none; border:none; font-size:18px; cursor:pointer; margin-top:8px; color:#86868b; transition:transform .2s; }
+.like-btn:hover { transform:scale(1.1); }
+.like-btn.liked { color:#ff3b30; }
+
+.loading { display:flex; align-items:center; justify-content:center; gap:8px; padding:16px; color:#86868b; }
+.dot { width:6px; height:6px; background:#86868b; border-radius:50%; animation:bounce 1.4s infinite both; }
+.dot:nth-child(2) { animation-delay:0.2s; } .dot:nth-child(3) { animation-delay:0.4s; }
+@keyframes bounce { 0%,80%,100% { transform:scale(1); } 40% { transform:scale(1.2); } }
+  </style>
+</head>
+<body>
+  <header class="fixed-header">
+    <div class="logo">🎬 MovieChain</div>
+    <div style="display:flex;align-items:center;gap:16px;">
+      <button id="favoritesBtn" class="header-button" title="Избранное">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+          class="favorites-icon" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"></path>
+        </svg>
+        <span>Избранное</span>
+      </button>
+      <div class="theme-toggle-apple" id="themeToggle" title="Переключить тему">
+        <div class="knob-apple"><div class="icon-center" id="toggleIcon">☀️</div></div>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <div class="search-card">
+      <div class="intro-text-container">
+        <p class="intro-text">Опишите фильм, эмоции или укажите критерии — получите персональные рекомендации</p>
+      </div>
+
+      <div class="input-group">
+        <button id="settingsBtn" class="action-button"><span>Критерии</span></button>
+        <input type="text" id="movieInput" placeholder="Например: «Интерстеллар» или «Фильм про надежду в космосе»" />
+        <button id="searchBtn" class="action-button"><span>Поиск</span></button>
+      </div>
+
+      <div id="filtersPanel" class="filters-panel" style="display:none;">
+        <!-- Поля фильтров (без изменений) -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+          <h3>Критерии поиска</h3>
+          <button id="resetFilters" class="reset-filters">Сбросить всё</button>
+        </div>
+
+        <div class="filter-section">
+          <label>Жанры</label>
+          <div class="flex-wrap">
+            <button class="pill-button" data-id="28">Боевик</button>
+            <button class="pill-button" data-id="12">Приключения</button>
+            <button class="pill-button" data-id="16">Мультфильм</button>
+            <button class="pill-button" data-id="35">Комедия</button>
+            <button class="pill-button" data-id="80">Криминал</button>
+            <button class="pill-button" data-id="99">Документальный</button>
+            <button class="pill-button" data-id="18">Драма</button>
+            <button class="pill-button" data-id="10751">Семейный</button>
+            <button class="pill-button" data-id="14">Фэнтези</button>
+            <button class="pill-button" data-id="36">История</button>
+            <button class="pill-button" data-id="27">Ужасы</button>
+            <button class="pill-button" data-id="10402">Музыка</button>
+            <button class="pill-button" data-id="9648">Детектив</button>
+            <button class="pill-button" data-id="10749">Мелодрама</button>
+            <button class="pill-button" data-id="878">Фантастика</button>
+            <button class="pill-button" data-id="53">Триллер</button>
+            <button class="pill-button" data-id="10752">Военный</button>
+            <button class="pill-button" data-id="37">Вестерн</button>
+          </div>
+        </div>
+
+        <div class="filter-section">
+          <label>Год от / до</label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <input type="number" id="yearFrom" placeholder="1990" min="1900" max="2025">
+            <input type="number" id="yearTo" placeholder="2024" min="1900" max="2025">
+          </div>
+        </div>
+
+        <div class="filter-section">
+          <div class="rating-section">
+            <div class="rating-label">Рейтинг: <span id="ratingDisplay">0 – 10</span></div>
+            <div class="rating-sliders">
+              <input type="range" id="ratingFrom" min="0" max="10" step="0.5" value="0">
+              <input type="range" id="ratingTo" min="0" max="10" step="0.5" value="10">
+            </div>
+          </div>
+        </div>
+
+        <div class="filter-section">
+          <label>Количество рекомендаций: <span id="countValue">5</span></label>
+          <input type="range" id="movieCount" min="3" max="15" value="5">
+        </div>
+
+        <div class="filter-section">
+          <label>Настроение</label>
+          <div class="flex-wrap">
+            <button class="pill-button mood-btn" data-value="веселый">Веселый</button>
+            <button class="pill-button mood-btn" data-value="грустный">Грустный</button>
+            <button class="pill-button mood-btn" data-value="напряженный">Напряженный</button>
+            <button class="pill-button mood-btn" data-value="вдохновляющий">Вдохновляющий</button>
+            <button class="pill-button mood-btn" data-value="пугающий">Пугающий</button>
+            <button class="pill-button mood-btn" data-value="романтичный">Романтичный</button>
+          </div>
+        </div>
+
+        <div class="filter-section">
+          <label>Темп</label>
+          <div style="display:flex;gap:12px;">
+            <button class="pill-button pace-btn" data-value="медленный">Медленный</button>
+            <button class="pill-button pace-btn" data-value="средний">Средний</button>
+            <button class="pill-button pace-btn" data-value="динамичный">Динамичный</button>
+          </div>
+        </div>
+
+        <div class="filter-section">
+          <label>Просмотр</label>
+          <div class="flex-wrap">
+            <button class="pill-button watch-btn" data-value="один">Один</button>
+            <button class="pill-button watch-btn" data-value="с семьей">С семьей</button>
+            <button class="pill-button watch-btn" data-value="с друзьями">С друзьями</button>
+            <button class="pill-button watch-btn" data-value="романтический вечер">Романтический вечер</button>
+          </div>
+        </div>
+
+        <div class="filter-section">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <label>Режиссёр</label>
+              <input type="text" id="director" placeholder="Кристофер Нолан">
+            </div>
+            <div>
+              <label>Актёры (через запятую)</label>
+              <input type="text" id="actors" placeholder="Леонардо ДиКаприо">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="result"></div>
+      <div id="similar"></div>
+    </div>
+  </main>
+
+  <div id="favoritesModal" class="favorites-modal">
+    <h3>Избранные фильмы</h3>
+    <div id="favoritesList" class="favorites-list"></div>
+    <button id="closeFavorites" class="close-favorites">Закрыть</button>
+  </div>
+
+  <script>
+/*
+  Demo-safe index.html
+  - Убраны прямые вызовы к TMDb (нет API-ключа).
+  - Взаимодействие с рекомендациями происходит через локальный backend:
+    POST http://localhost:5000/recommend
+  - Бэкенд в деморежиме должен возвращать объекты рекомендаций:
+    { title, year, poster_url (optional), genres (optional array), reason (optional) }
+  - Если вы хотите вернуть TMDb-обогащение — делайте это на сервере и не храните ключи в клиенте.
+*/
+
+document.addEventListener('DOMContentLoaded', () => {
+  const body = document.body;
+  const toggle = document.getElementById('themeToggle');
+  const knob = document.querySelector('.knob-apple');
+  const icon = document.getElementById('toggleIcon');
+  const filtersPanel = document.getElementById('filtersPanel');
+  const favoritesModal = document.getElementById('favoritesModal');
+  const favoritesList = document.getElementById('favoritesList');
+  const favoritesBtn = document.getElementById('favoritesBtn');
+  const closeFavorites = document.getElementById('closeFavorites');
+  const resetFilters = document.getElementById('resetFilters');
+  const searchBtn = document.getElementById('searchBtn');
+  const movieInput = document.getElementById('movieInput');
+
+  // Theme init
+  const savedTheme = localStorage.getItem('theme') || 'light';
+  if (savedTheme === 'dark') {
+    body.classList.add('dark-theme');
+    icon.textContent = '🌙';
+    knob.style.transform = `translateX(${toggle.offsetWidth - knob.offsetWidth - 8}px)`;
+  } else {
+    icon.textContent = '☀️';
+    knob.style.transform = 'translateX(0)';
+  }
+
+  toggle.addEventListener('click', () => {
+    const willBeDark = !body.classList.contains('dark-theme');
+    body.classList.toggle('dark-theme', willBeDark);
+    localStorage.setItem('theme', willBeDark ? 'dark' : 'light');
+    icon.textContent = willBeDark ? '🌙' : '☀️';
+    knob.style.transform = willBeDark ? `translateX(${toggle.offsetWidth - knob.offsetWidth - 8}px)` : 'translateX(0)';
+  });
+
+  // Criteria panel
+  document.getElementById('settingsBtn').addEventListener('click', () => {
+    filtersPanel.style.display = filtersPanel.style.display === 'none' ? 'block' : 'none';
+  });
+
+  resetFilters.addEventListener('click', () => {
+    document.querySelectorAll('.pill-button').forEach(btn => btn.classList.remove('active'));
+    document.getElementById('yearFrom').value = '';
+    document.getElementById('yearTo').value = '';
+    document.getElementById('ratingFrom').value = 0;
+    document.getElementById('ratingTo').value = 10;
+    document.getElementById('movieCount').value = 5;
+    document.getElementById('director').value = '';
+    document.getElementById('actors').value = '';
+    document.getElementById('ratingDisplay').textContent = '0 – 10';
+    document.getElementById('countValue').textContent = '5';
+    updateSearchButton();
+  });
+
+  const ratingFromSlider = document.getElementById('ratingFrom');
+  const ratingToSlider = document.getElementById('ratingTo');
+  const ratingDisplay = document.getElementById('ratingDisplay');
+  ratingFromSlider.addEventListener('input', () => { updateRatingDisplay(); updateSearchButton(); });
+  ratingToSlider.addEventListener('input', () => { updateRatingDisplay(); updateSearchButton(); });
+  function updateRatingDisplay() { ratingDisplay.textContent = `${parseFloat(ratingFromSlider.value)} – ${parseFloat(ratingToSlider.value)}`; }
+
+  const countSlider = document.getElementById('movieCount');
+  countSlider.addEventListener('input', () => {
+    document.getElementById('countValue').textContent = countSlider.value;
+    updateSearchButton();
+  });
+
+  document.querySelectorAll('.pill-button').forEach(btn => btn.addEventListener('click', () => { btn.classList.toggle('active'); updateSearchButton(); }));
+  ['yearFrom','yearTo','director','actors'].forEach(id => document.getElementById(id).addEventListener('input', updateSearchButton));
+
+  // Favorites
+  function toggleFavorites() {
+    const isOpen = favoritesModal.classList.contains('open');
+    if (isOpen) {
+      favoritesModal.classList.remove('open');
+      favoritesBtn.classList.remove('active');
+    } else {
+      renderFavorites();
+      favoritesModal.classList.add('open');
+      favoritesBtn.classList.add('active');
+    }
+  }
+  favoritesBtn.addEventListener('click', toggleFavorites);
+  closeFavorites.addEventListener('click', toggleFavorites);
+
+  function renderFavorites() {
+    const liked = JSON.parse(localStorage.getItem('likedMovies') || '[]');
+    favoritesList.innerHTML = liked.length ? liked.map(m => `<div class="favorite-item"><strong>${m.Title}</strong> (${m.Year})</div>`).join('') : '<p style="color:#86868b;">Нет фильмов в избранном</p>';
+  }
+
+  function getSelectedGenres() {
+    return Array.from(document.querySelectorAll('.pill-button[data-id].active')).map(btn => parseInt(btn.dataset.id));
+  }
+
+  function canSearch() {
+    const query = movieInput.value.trim();
+    if (query) return true;
+    const hasGenre = document.querySelectorAll('.pill-button[data-id].active').length > 0;
+    const ratingFrom = parseFloat(ratingFromSlider.value);
+    const ratingTo = parseFloat(ratingToSlider.value);
+    const hasRating = !(ratingFrom === 0 && ratingTo === 10);
+    const hasYear = !!document.getElementById('yearFrom').value.trim() || !!document.getElementById('yearTo').value.trim();
+    const hasDirector = !!document.getElementById('director').value.trim();
+    const hasActors = !!document.getElementById('actors').value.trim();
+    const hasMood = document.querySelectorAll('.mood-btn.active').length > 0;
+    const hasPace = document.querySelectorAll('.pace-btn.active').length > 0;
+    const hasWatch = document.querySelectorAll('.watch-btn.active').length > 0;
+    const hasCount = parseInt(countSlider.value) !== 5;
+    return hasGenre || hasRating || hasYear || hasDirector || hasActors || hasMood || hasPace || hasWatch || hasCount;
+  }
+
+  function updateSearchButton() { searchBtn.disabled = !canSearch(); }
+  movieInput.addEventListener('input', updateSearchButton);
+  updateSearchButton();
+
+  // Demo-safe search: обращаемся только к локальному backend (без TMDb)
+  async function findSimilar() {
+    const query = movieInput.value.trim();
+    const resultDiv = document.getElementById("result");
+    const similarDiv = document.getElementById("similar");
+    resultDiv.innerHTML = "";
+    similarDiv.innerHTML = "<p style='text-align:center;color:#86868b;padding:16px;'>Ищем...</p>";
+    try {
+      // Отображаем простую карточку введённого названия (без внешних запросов)
+      if (query) {
+        resultDiv.innerHTML = `
+          <div class="movie">
+            <div style="width:96px;height:144px;background:#f0f0f0;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#86868b;">${escapeHtml(shorten(query,18))}</div>
+            <div class="movie-info">
+              <h3>${escapeHtml(shorten(query,60))}</h3>
+              <p style="color:#86868b;margin-top:8px;">Данные о фильме доступны в демонстрационной версии сервиса.</p>
+            </div>
+          </div>
+        `;
+      }
+
+      // Подготавливаем критерии для отправки на локальный бэкенд
+      const criteria = {
+        mood: query,
+        genres: getSelectedGenres(),
+        minRating: parseFloat(ratingFromSlider.value),
+        maxRating: parseFloat(ratingToSlider.value),
+        count: parseInt(countSlider.value) || 5,
+        yearFrom: document.getElementById('yearFrom').value.trim(),
+        yearTo: document.getElementById('yearTo').value.trim(),
+        director: document.getElementById('director').value.trim(),
+        actors: document.getElementById('actors').value.trim(),
+        likedMovies: JSON.parse(localStorage.getItem('likedMovies') || '[]'),
+        requireRomance: Array.from(document.querySelectorAll('.mood-btn.active')).some(btn => btn.dataset.value === 'романтичный') ||
+                       Array.from(document.querySelectorAll('.watch-btn.active')).some(btn => btn.dataset.value === 'романтический вечер')
+      };
+
+      similarDiv.innerHTML = "<p style='text-align:center;color:#86868b;padding:16px;'>Генерируем рекомендации... 🤖</p>";
+
+      // ВНИМАНИЕ: адрес локального демо-бэкенда. Если он работает на другом хосте/порту, измените URL.
+      const aiRes = await fetch("http://localhost:5000/recommend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(criteria)
+      });
+
+      const aiData = await aiRes.json();
+      similarDiv.innerHTML = "";
+
+      if (aiData.recommendations?.length) {
+        // Используем данные, возвращённые бэкендом. Если нет poster_url — показываем плейсхолдер.
+        const enriched = aiData.recommendations.map(r => ({
+          Title: r.title || r.Title || 'Без названия',
+          Year: r.year || r.Year || '????',
+          Genre: (r.genres && Array.isArray(r.genres) ? r.genres.join(', ') : (r.genre || '—')),
+          imdbRating: r.vote_average ? Number(r.vote_average).toFixed(1) : (r.vote ? String(r.vote) : '—'),
+          Plot: r.reason || 'Рекомендация подобрана системой.',
+          Poster: r.poster_url || 'https://via.placeholder.com/96x144?text=No+Poster'
+        }));
+        renderSimilarMovies(enriched, similarDiv);
+      } else {
+        similarDiv.innerHTML = "<p style='text-align:center;color:#86868b;padding:20px;'>Не удалось получить рекомендации от сервера.</p>";
+      }
+    } catch (err) {
+      console.error("Ошибка в findSimilar:", err);
+      resultDiv.innerHTML = `<p style="color:red; text-align:center; padding:16px;">❌ Ошибка при поиске.</p>`;
+      similarDiv.innerHTML = "";
+    }
+  }
+
+  function shorten(text, max) {
+    if (!text) return '';
+    return text.length > max ? text.slice(0, max-1) + '…' : text;
+  }
+
+  function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  function renderSimilarMovies(movies, container) {
+    container.innerHTML = "<h3 style='color:#0071e3;margin:32px 0 16px;'>✨ Персонализированные рекомендации:</h3>";
+    const liked = JSON.parse(localStorage.getItem('likedMovies') || '[]');
+    movies.forEach(m => {
+      const isLiked = liked.some(l => l.Title === m.Title && l.Year === m.Year);
+      container.innerHTML += `
+        <div class="movie">
+          <img class="poster" src="${m.Poster}" alt="poster" />
+          <div class="movie-info">
+            <h4>${escapeHtml(m.Title)} (${escapeHtml(m.Year)})</h4>
+            <p><strong>Жанр:</strong> ${escapeHtml(m.Genre || '—')}</p>
+            <p><strong>Рейтинг:</strong> ${escapeHtml(m.imdbRating || '—')}</p>
+            <p style="color:#86868b;">${escapeHtml(m.Plot || '')}</p>
+            <button class="like-btn ${isLiked ? 'liked' : ''}" data-title="${escapeHtml(m.Title)}" data-year="${escapeHtml(m.Year)}">${isLiked ? '❤️' : '🤍'}</button>
+          </div>
+        </div>
+      `;
+    });
+    document.querySelectorAll('.like-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const title = e.currentTarget.dataset.title;
+        const year = e.currentTarget.dataset.year;
+        let liked = JSON.parse(localStorage.getItem('likedMovies') || '[]');
+        const exists = liked.some(m => m.Title === title && m.Year === year);
+        if (exists) {
+          liked = liked.filter(m => !(m.Title === title && m.Year === year));
+          e.currentTarget.classList.remove('liked');
+          e.currentTarget.textContent = '🤍';
+        } else {
+          liked.push({ Title: title, Year: year });
+          e.currentTarget.classList.add('liked');
+          e.currentTarget.textContent = '❤️';
+        }
+        localStorage.setItem('likedMovies', JSON.stringify(liked));
+        if (favoritesModal.classList.contains('open')) renderFavorites();
+      });
+    });
+  }
+
+  searchBtn.addEventListener("click", findSimilar);
+  movieInput.addEventListener("keypress", (e) => { if (e.key === "Enter" && canSearch()) findSimilar(); });
+});
+  </script>
+</body>
+</html>
